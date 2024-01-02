@@ -8,7 +8,7 @@ import {
   fail,
   unimplemented,
 } from "./test_util.ts";
-import { Buffer } from "../../../test_util/std/io/buffer.ts";
+import { Buffer } from "../../../test_util/std/streams/buffer.ts";
 
 const listenPort = 4506;
 
@@ -642,7 +642,7 @@ function bufferServer(addr: string): Promise<Buffer> {
   }) as Deno.Listener;
   return listener.accept().then(async (conn: Deno.Conn) => {
     const buf = new Buffer();
-    const p1 = buf.readFrom(conn);
+    const p1 = conn.readable.pipeTo(buf.writable);
     const p2 = conn.write(
       new TextEncoder().encode(
         "HTTP/1.0 404 Not Found\r\nContent-Length: 2\r\n\r\nNF",
@@ -655,7 +655,6 @@ function bufferServer(addr: string): Promise<Buffer> {
     // write() to complete is not a guarantee that we've read the incoming
     // request.
     await Promise.all([p1, p2]);
-    conn.close();
     listener.close();
     return buf;
   });
