@@ -232,24 +232,12 @@ class TcpConn extends Conn {
 }
 
 class UnixConn extends Conn {
-  #rid = 0;
-
   constructor(rid, remoteAddr, localAddr) {
     super(rid, remoteAddr, localAddr);
     ObjectDefineProperty(this, internalRidSymbol, {
       enumerable: false,
       value: rid,
     });
-    this.#rid = rid;
-  }
-
-  get rid() {
-    internals.warnOnDeprecatedApi(
-      "Deno.UnixConn.rid",
-      new Error().stack,
-      "Use `Deno.UnixConn` instance methods instead.",
-    );
-    return this.#rid;
   }
 }
 
