@@ -26,7 +26,7 @@ import {
   op_create_brotli_decompress,
 } from "ext:core/ops";
 
-import { zlib as constants } from "ext:deno_node/internal_binding/constants.ts";
+import { zlib as constants } from "ext:/deno_node/internal_binding/constants.ts";
 import { TextEncoder } from "ext:deno_web/08_text_encoding.js";
 import { Transform } from "node:stream";
 import { Buffer } from "node:buffer";
