@@ -7,14 +7,3 @@ try {
 } catch (err) {
   console.log(err);
 }
-
-try {
-  Deno.run({
-    cmd: ["curl"],
-    env: {
-      "LD_PRELOAD": "./libpreload.so",
-    },
-  });
-} catch (err) {
-  console.log(err);
-}

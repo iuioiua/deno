@@ -3,7 +3,6 @@
 import { core, internals, primordials } from "ext:core/mod.js";
 import {
   op_kill,
-  op_run,
   op_run_status,
   op_spawn_child,
   op_spawn_kill,
@@ -12,10 +11,8 @@ import {
 } from "ext:core/ops";
 const {
   ArrayPrototypeMap,
-  ArrayPrototypeSlice,
   TypeError,
   ObjectEntries,
-  SafeArrayIterator,
   String,
   SymbolAsyncDispose,
   ObjectPrototypeIsPrototypeOf,
@@ -27,7 +24,7 @@ const {
 
 import { FsFile } from "ext:deno_fs/30_fs.js";
 import { readAll } from "ext:deno_io/12_io.js";
-import { assert, pathFromURL } from "ext:deno_web/00_infra.js";
+import { pathFromURL } from "ext:deno_web/00_infra.js";
 import { packageData } from "ext:deno_fetch/22_body.js";
 import * as abortSignal from "ext:deno_web/03_abort_signal.js";
 import {
@@ -53,11 +50,6 @@ function kill(pid, signo = "SIGTERM") {
 
 function opRunStatus(rid) {
   return op_run_status(rid);
-}
-
-function opRun(request) {
-  assert(request.cmd.length > 0);
-  return op_run(request);
 }
 
 async function runStatus(rid) {
@@ -130,33 +122,6 @@ class Process {
   kill(signo = "SIGTERM") {
     opKill(this.pid, signo, "Deno.Process.kill()");
   }
-}
-
-// Note: This function was soft-removed in Deno 2. Its types have been removed,
-// but its implementation has been kept to avoid breaking changes.
-function run({
-  cmd,
-  cwd = undefined,
-  env = { __proto__: null },
-  stdout = "inherit",
-  stderr = "inherit",
-  stdin = "inherit",
-}) {
-  if (cmd[0] != null) {
-    cmd = [
-      pathFromURL(cmd[0]),
-      ...new SafeArrayIterator(ArrayPrototypeSlice(cmd, 1)),
-    ];
-  }
-  const res = opRun({
-    cmd: ArrayPrototypeMap(cmd, String),
-    cwd,
-    env: ObjectEntries(env),
-    stdin,
-    stdout,
-    stderr,
-  });
-  return new Process(res);
 }
 
 export const kExtraStdio = Symbol("extraStdio");
@@ -529,4 +494,4 @@ class Command {
   }
 }
 
-export { ChildProcess, Command, kill, kInputOption, Process, run };
+export { ChildProcess, Command, kill, kInputOption, Process };

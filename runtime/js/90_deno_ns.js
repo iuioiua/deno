@@ -45,7 +45,6 @@ const usageBuffer = new Float64Array(4);
 
 const denoNs = {
   Process: process.Process,
-  run: process.run,
   isatty: tty.isatty,
   writeFileSync: fs.writeFileSync,
   writeFile: fs.writeFile,

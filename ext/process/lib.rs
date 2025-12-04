@@ -165,7 +165,6 @@ deno_core::extension!(
     op_spawn_wait,
     op_spawn_sync,
     op_spawn_kill,
-    deprecated::op_run,
     deprecated::op_run_status,
     deprecated::op_kill,
   ],
@@ -300,9 +299,6 @@ pub enum ProcessError {
   #[class(inherit)]
   #[error(transparent)]
   Other(#[from] JsErrorBox),
-  #[class(type)]
-  #[error("Missing cmd")]
-  MissingCmd, // only for Deno.run
 }
 
 #[derive(Deserialize)]
@@ -1132,17 +1128,6 @@ mod deprecated {
 
   use super::*;
 
-  #[derive(Deserialize)]
-  #[serde(rename_all = "camelCase")]
-  pub struct RunArgs {
-    cmd: Vec<String>,
-    cwd: Option<String>,
-    env: Vec<(String, String)>,
-    stdin: StdioOrRid,
-    stdout: StdioOrRid,
-    stderr: StdioOrRid,
-  }
-
   struct ChildResource {
     child: AsyncRefCell<Child>,
   }
@@ -1157,132 +1142,6 @@ mod deprecated {
     fn borrow_mut(self: Rc<Self>) -> AsyncMutFuture<Child> {
       RcRef::map(self, |r| &r.child).borrow_mut()
     }
-  }
-
-  #[derive(Serialize)]
-  #[serde(rename_all = "camelCase")]
-  // TODO(@AaronO): maybe find a more descriptive name or a convention for return structs
-  pub struct RunInfo {
-    rid: ResourceId,
-    pid: Option<u32>,
-    stdin_rid: Option<ResourceId>,
-    stdout_rid: Option<ResourceId>,
-    stderr_rid: Option<ResourceId>,
-  }
-
-  #[op2(stack_trace)]
-  #[serde]
-  pub fn op_run(
-    state: &mut OpState,
-    #[serde] run_args: RunArgs,
-  ) -> Result<RunInfo, ProcessError> {
-    let args = run_args.cmd;
-    let cmd = args.first().ok_or(ProcessError::MissingCmd)?;
-    let (cmd, run_env) = compute_run_cmd_and_check_permissions(
-      cmd,
-      run_args.cwd.as_deref(),
-      &run_args.env,
-      /* clear env */ false,
-      state,
-      "Deno.run()",
-    )?;
-
-    #[cfg(windows)]
-    let mut c = Command::new(cmd);
-    #[cfg(not(windows))]
-    let mut c = tokio::process::Command::new(cmd);
-    for arg in args.iter().skip(1) {
-      c.arg(arg);
-    }
-    c.current_dir(run_env.cwd);
-
-    c.env_clear();
-    for (key, value) in run_env.envs {
-      c.env(key.inner, value);
-    }
-
-    #[cfg(unix)]
-    // TODO(bartlomieju):
-    #[allow(clippy::undocumented_unsafe_blocks)]
-    unsafe {
-      c.pre_exec(|| {
-        libc::setgroups(0, std::ptr::null());
-        Ok(())
-      });
-    }
-
-    // TODO: make this work with other resources, eg. sockets
-    c.stdin(run_args.stdin.as_stdio(state)?);
-    c.stdout(
-      match run_args.stdout {
-        StdioOrRid::Stdio(Stdio::Inherit) => StdioOrRid::Rid(1),
-        value => value,
-      }
-      .as_stdio(state)?,
-    );
-    c.stderr(
-      match run_args.stderr {
-        StdioOrRid::Stdio(Stdio::Inherit) => StdioOrRid::Rid(2),
-        value => value,
-      }
-      .as_stdio(state)?,
-    );
-
-    // We want to kill child when it's closed
-    c.kill_on_drop(true);
-
-    // Spawn the command.
-    let mut child = c.spawn()?;
-    let pid = child.id();
-
-    let stdin_rid = match child.stdin.take() {
-      Some(child_stdin) => {
-        #[cfg(windows)]
-        let child_stdin = tokio::process::ChildStdin::from_std(child_stdin)?;
-        let rid = state
-          .resource_table
-          .add(ChildStdinResource::from(child_stdin));
-        Some(rid)
-      }
-      None => None,
-    };
-
-    let stdout_rid = match child.stdout.take() {
-      Some(child_stdout) => {
-        #[cfg(windows)]
-        let child_stdout = tokio::process::ChildStdout::from_std(child_stdout)?;
-        let rid = state
-          .resource_table
-          .add(ChildStdoutResource::from(child_stdout));
-        Some(rid)
-      }
-      None => None,
-    };
-
-    let stderr_rid = match child.stderr.take() {
-      Some(child_stderr) => {
-        #[cfg(windows)]
-        let child_stderr = tokio::process::ChildStderr::from_std(child_stderr)?;
-        let rid = state
-          .resource_table
-          .add(ChildStderrResource::from(child_stderr));
-        Some(rid)
-      }
-      None => None,
-    };
-
-    let child_resource = ChildResource {
-      child: AsyncRefCell::new(child),
-    };
-    let child_rid = state.resource_table.add(child_resource);
-
-    Ok(RunInfo {
-      rid: child_rid,
-      pid,
-      stdin_rid,
-      stdout_rid,
-      stderr_rid,
-    })
   }
 
   #[derive(Serialize)]
