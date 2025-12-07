@@ -1,5 +1,6 @@
 const { core } = Deno[Deno.internal];
-const opPromise = core.read(Deno.stdin.rid, new Uint8Array(10));
+// RID of `Deno.stdin` is 0
+const opPromise = core.read(0, new Uint8Array(10));
 core.unrefOpPromise(opPromise);
 
 async function main() {

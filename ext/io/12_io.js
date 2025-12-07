@@ -127,10 +127,6 @@ class Stdin {
   constructor() {
   }
 
-  get rid() {
-    return this.#rid;
-  }
-
   async read(p) {
     if (p.length === 0) return 0;
     this.#opPromise = core.read(this.#rid, p);
@@ -203,10 +199,6 @@ class Stdout {
   constructor() {
   }
 
-  get rid() {
-    return this.#rid;
-  }
-
   write(p) {
     return write(this.#rid, p);
   }
@@ -236,10 +228,6 @@ class Stderr {
   #writable;
 
   constructor() {
-  }
-
-  get rid() {
-    return this.#rid;
   }
 
   write(p) {
